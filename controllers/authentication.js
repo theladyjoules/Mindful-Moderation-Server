@@ -1,7 +1,11 @@
 var jwt = require('jsonwebtoken'),  
     crypto = require('crypto'),
     User = require('../models/user'),
-    config = require('../config/main');
+    config = require('../config/main'),
+    validation = require('../utilities/validation'),
+    strings = require('../utilities/strings'),
+    isEmpty = require('../utilities/isEmpty'),
+    bcrypt = require('bcrypt-nodejs');
 
 function generateToken(user) {  
   return jwt.sign(user, config.secret, {
@@ -22,15 +26,14 @@ function setUserInfo(request) {
 
 exports.account = function(req, res, next) {
   var token = req.headers.authorization.substring(4);
-  jwt.verify(token, config.secret, function(err, decoded) {
-    if (err) { return next(err); }
+  var userInfo = jwt.decode(req.headers.authorization.substring(4));
 
-    var userInfo = jwt.decode(req.headers.authorization.substring(4));
-    console.log(userInfo)
+  User.findOne({ '_id': userInfo._id }, function(err, existingUser) {
+    if (err) { return next(err); }
     res.status(200).json({
-      firstName: userInfo.firstName,
-      lastName: userInfo.lastName,
-      email: userInfo.email
+      firstName: existingUser.profile.firstName,
+      lastName: existingUser.profile.lastName,
+      email: existingUser.email
     });
   });
 }
@@ -52,7 +55,6 @@ exports.login = function(req, res, next) {
 // Registration Route
 //========================================
 exports.register = function(req, res, next) {
-  console.log(req.body)
   // Check for registration errors
   const email = req.body.email;
   const firstName = req.body.firstName;
@@ -105,6 +107,122 @@ exports.register = function(req, res, next) {
         });
       });
   });
+}
+
+//========================================
+// Update User Route
+//========================================
+exports.update_user = function(req, res, next) {
+  var token = req.headers.authorization.substring(4);
+  var userInfo = jwt.decode(req.headers.authorization.substring(4));
+  // Check for registration errors
+  const email = req.body.email;
+  const isUpdatingEmail = userInfo.email !== email;
+  const firstName = req.body.firstName;
+  const lastName = req.body.lastName;
+
+  const errors = {}
+  if (validation.isInvalidRequiredField(firstName)){
+    errors.firstName = strings.string('required')
+  }
+  if (validation.isInvalidRequiredField(lastName)){
+    errors.lastName = strings.string('required')
+  }
+  if (validation.isInvalidRequiredField(email)){
+    errors.email = strings.string('required')
+  }
+  if (isUpdatingEmail && validation.isInvalidEmail(email)){
+    errors.email = strings.string('email')
+  }
+
+  if (!isEmpty.isEmpty(errors)) {
+    return res.status(422).send(errors);
+  }
+
+  if(isUpdatingEmail){
+    User.findOne({ email: email }, function(err, existingUser) {
+      if (err) { return next(err); }
+
+      // If user is not unique, return error
+      if (existingUser) {
+        return res.status(422).send({ error: 'That email address is already in use.' });
+      }
+    });
+  }
+
+  // If email is unique and password was provided, update account
+  let userUpdate = {
+    email: email,
+    profile: { firstName: firstName, lastName: lastName }
+  };
+  User.findByIdAndUpdate(userInfo._id, userUpdate, {}, function (err, user) {
+    if (err) { return next(err); }
+
+    res.status(200).json({ 
+      success: 'User successfully updated',
+      firstName: userUpdate.profile.firstName,
+      lastName: userUpdate.profile.lastName,
+      email: userUpdate.email
+    });
+  });
+}
+
+//========================================
+// Update Password Route
+//========================================
+exports.update_password = function(req, res, next) {
+  var token = req.headers.authorization.substring(4);
+  var userInfo = jwt.decode(req.headers.authorization.substring(4));
+  // Check for registration errors
+  const currentPassword = req.body.currentPassword;
+  const password = req.body.password;
+
+  const errors = {}
+  if (validation.isInvalidRequiredField(currentPassword)){
+    errors.currentPassword = strings.string('required')
+  }
+  if (validation.isInvalidRequiredField(password)){
+    errors.password = strings.string('required')
+  }
+  if (validation.isInvalidPassword(password)){
+    errors.password = strings.string('password')
+  }
+
+  if (!isEmpty.isEmpty(errors)) {
+    res.status(400).json(errors);
+  }
+
+  User.findOne({'_id': userInfo._id }, function(err, user) {
+    if (err) { return next(err); }
+
+    bcrypt.compare(currentPassword, user.password, function(err, isMatch) {
+      if (err || !isMatch) {
+        res.status(400).json({
+          error:'Current password is incorrect.',
+          errorInfo: err
+        });
+      }
+      else{
+        const SALT_FACTOR = 5;
+        bcrypt.genSalt(SALT_FACTOR, function(err, salt) {
+          if (err) return next(err);
+
+          bcrypt.hash(password, salt, null, function(err, hash) {
+            if (err) return next(err);
+            
+            User.update({'_id':userInfo._id}, { password: hash }, {}, function (err, user) {
+              if (err) { return next(err); }
+
+              res.status(200).json({ 
+                success: 'Password successfully updated'
+              });
+            });
+          });
+        });
+      }
+    });
+  });
+
 }
 
 //========================================

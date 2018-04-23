@@ -18,13 +18,11 @@ const REQUIRE_ADMIN = "Admin",
       REQUIRE_CLIENT = "Client",
       REQUIRE_MEMBER = "Member";
 
-// Registration route
+// User and Account routes
 router.post('/register', AuthenticationController.register);
-
-// Login route
+router.post('/update_user', requireAuth, AuthenticationController.update_user);
+router.post('/update_password', requireAuth, AuthenticationController.update_password);
 router.post('/login', requireLogin, AuthenticationController.login);
-// Login route
-
 router.get('/account', requireAuth, AuthenticationController.account);
 
 // Drink Routes

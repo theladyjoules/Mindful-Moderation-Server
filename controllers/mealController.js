@@ -29,13 +29,12 @@ exports.create_meal = [
       meal_user_id: '5ac7e293734d1d2fb5429046',
       meal_name: req.body.meal_name,
       meal_time_start: req.body.meal_time_start,
-      meal_time_end: req.body.meal_time_end,
+      meal_duration: req.body.meal_duration,
       meal_foods: req.body.meal_foods,
       meal_hunger_before: req.body.meal_hunger_before,
       meal_hunger_after: req.body.meal_hunger_after,
       meal_setting: req.body.meal_setting,
       meal_moods: req.body.meal_moods,
-      meal_participants: req.body.meal_participants,
       meal_notes: req.body.meal_notes
     });
 
