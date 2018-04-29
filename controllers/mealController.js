@@ -74,10 +74,14 @@ exports.view_meals_by_day = function(req, res) {
   Meal.find({mealDate: {"$gte": day.toDate(), "$lt": day.add(1, 'days').toDate()}}).sort({ 'mealDate': 1 })
     .exec(function (err, results) {
       if (err) { return next(err); }
+      let meals = {}
+      for(let meal in results){
+        meals[results[meal]._id] = results[meal]
+      }
       res.json({
         'success': true,
         'day': req.params.day,
-        'meals': results
+        'meals': meals
       });
     });
 };
