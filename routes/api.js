@@ -35,7 +35,7 @@ router.post('/drink/:id/update', drink_controller.update_drink);
 router.post('/drink/:id/delete', drink_controller.delete_drink);
 
 // Meal Routes
-router.post('/meal/create', meal_controller.create_meal);
+router.post('/meal/create', requireAuth, meal_controller.create_meal);
 
 router.get('/meal/:id/view', meal_controller.view_meal);
 
@@ -43,7 +43,7 @@ router.post('/meal/:id/update', meal_controller.update_meal);
 
 router.post('/meal/:id/delete', meal_controller.delete_meal);
 
-router.get('/day/:id', requireAuth, meal_controller.view_meal_summary);
+router.get('/day/:day', requireAuth, meal_controller.view_meals_by_day);
 
 // Mood Routes
 router.get('/mood/view', mood_controller.view_all_moods);

@@ -1,3 +1,5 @@
+var moment = require('moment');
+
 exports.isInvalidEmail = (email) => {
   if(!email || email === null || email === ''){
     return false
@@ -15,4 +17,8 @@ exports.isInvalidPassword = (password) => {
 
 exports.isInvalidRequiredField = (field) => {
   return !field || field === null || field === '' 
+}
+
+exports.isValidDate = (value) => {
+  return moment(value).isValid()
 }

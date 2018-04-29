@@ -19,4 +19,4 @@ var DrinkSchema = new Schema(
 );
 
 //Export model
-module.exports = mongoose.model('Meal', DrinkSchema);
+module.exports = mongoose.model('Drink', DrinkSchema);

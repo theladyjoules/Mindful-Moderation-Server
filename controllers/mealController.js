@@ -1,51 +1,61 @@
 var Meal = require('../models/meal');
-const { body,validationResult } = require('express-validator/check');
+var jwt = require('jsonwebtoken');
+const { check, validationResult } = require('express-validator/check');
 const { sanitizeBody } = require('express-validator/filter');
+const { isValidDate } = require('../utilities/validation');
+var moment = require('moment');
 
 exports.create_meal = [
-  // Convert the mood to an array.
-  (req, res, next) => {
-      if(!(req.body.moods instanceof Array)){
-          if(typeof req.body.moods==='undefined')
-          req.body.moods=[];
-          else
-          req.body.moods=new Array(req.body.moods);
-      }
-      next();
-  },
-  body('meal_name', 'Meal name required').isLength({ min: 1 }).trim(),
-  body('meal_time_start', 'Meal start time required').isLength({ min: 1 }).trim(),
-  body('meal_time_end', 'Meal end time required').isLength({ min: 1 }).trim(),
-  // body('meal_hunger_before', 'Meal beginning hunger required').isLength({ min: 1 }).isNumber().trim(),
-  // body('meal_hunger_after', 'Meal ending hunger required').isLength({ min: 1 }).isNumber().trim(),
+  check('mealDate')
+    .exists().withMessage('Meal date is required.')
+    .custom(isValidDate).withMessage('Meal date must be a valid date.'),
+  check('mealDateFormatted')
+    .exists().withMessage('Formatted meal date is required.'),
+  check('mealTimeFormatted')
+    .exists().withMessage('Formatted meal time is required.'),
+  check('mealDuration').optional()
+    .isNumeric().withMessage('Meal duration must be a number of minutes.'),
+  check('mealHungerBefore')
+    .exists().withMessage('Starting hunger level is required.')
+    .isInt({min:1, max:10}).withMessage('Starting hunger level must be between 1 and 10.'),
+  check('mealHungerAfter')
+    .exists().withMessage('Ending hunger level is required.')
+    .isInt({min:1, max:10}).withMessage('Ending hunger level must be between 1 and 10.'),
   
   sanitizeBody('*').trim().escape(),
 
   (req, res, next) => {
 
     const errors = validationResult(req);
-
-    var meal = new Meal({ 
-      meal_user_id: '5ac7e293734d1d2fb5429046',
-      meal_name: req.body.meal_name,
-      meal_time_start: req.body.meal_time_start,
-      meal_duration: req.body.meal_duration,
-      meal_foods: req.body.meal_foods,
-      meal_hunger_before: req.body.meal_hunger_before,
-      meal_hunger_after: req.body.meal_hunger_after,
-      meal_setting: req.body.meal_setting,
-      meal_moods: req.body.meal_moods,
-      meal_notes: req.body.meal_notes
-    });
-
     if (!errors.isEmpty()) {
-      res.json('error', { errors: errors.array()});
-      return;
+      return res.status(422).json({ errors: errors.mapped() });
     }
-    else {
-      meal.save(function (err) {
+    else{
+      var token = req.headers.authorization.substring(4);
+      var userInfo = jwt.decode(req.headers.authorization.substring(4));
+      var meal = new Meal({ 
+        mealUser: userInfo._id,
+        mealDate: req.body.mealDate,
+        mealDateFormatted: req.body.mealDateFormatted,
+        mealTimeFormatted: req.body.mealTimeFormatted,
+        mealDuration: req.body.mealDuration, 
+        mealName: req.body.mealName,
+        mealFoods: req.body.mealFoods,
+        mealHungerBefore: req.body.mealHungerBefore,
+        mealHungerAfter: req.body.mealHungerAfter,
+        mealMood: req.body.mealMood,
+        mealSetting: req.body.mealSetting,
+        mealNotes: req.body.mealNotes
+      });
+
+
+        console.log(req.body.mealDate)
+      meal.save(function (err, meal) {
         if (err) { return next(err); }
-        res.json('success!');
+        res.status(200).json({
+          success: true,
+          meal: meal
+        });
       });
     }
   }
@@ -55,12 +65,20 @@ exports.view_meal = function(req, res) {
   res.send('NOT IMPLEMENTED: View Meal Endpoint');
 };
 
-exports.view_meal_summary = function(req, res) {
-  var requestedDate = req.params.id.split('-');
-   Meal.find({meal_time_start: {"$gte": new Date(requestedDate[2], requestedDate[0], requestedDate[1]), "$lt": new Date(requestedDate[2], requestedDate[0], requestedDate[1] + 1)}}, 'meal_name meal_hunger_before meal_hunger_after meal_moods')
+exports.view_meals_by_day = function(req, res) {
+  // var token = req.headers.authorization.substring(4);
+  // var userInfo = jwt.decode(req.headers.authorization.substring(4));
+  const dayParts = req.params.day.split("-");
+  const day = moment(dayParts[2] + dayParts[0] + dayParts[1])
+  console.log(day)
+  Meal.find({mealDate: {"$gte": day.toDate(), "$lt": day.add(1, 'days').toDate()}}).sort({ 'mealDate': 1 })
     .exec(function (err, results) {
       if (err) { return next(err); }
-      res.json(results);
+      res.json({
+        'success': true,
+        'day': req.params.day,
+        'meals': results
+      });
     });
 };
 
