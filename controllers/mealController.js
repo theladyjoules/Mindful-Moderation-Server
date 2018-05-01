@@ -103,9 +103,43 @@ exports.view_meals_by_day = function(req, res) {
     });
 };
 
-exports.update_meal = function(req, res) {
-  res.send('NOT IMPLEMENTED: Update Meal Endpoint');
-};
+exports.update_meal = [
+  check('mealDate').optional()
+    .custom(isValidDate).withMessage('Meal date must be a valid date.'),
+  check('mealDuration').optional()
+    .isNumeric().withMessage('Meal duration must be a number of minutes.'),
+  check('mealHungerBefore').optional()
+    .isInt({min:1, max:10}).withMessage('Starting hunger level must be between 1 and 10.'),
+  check('mealHungerAfter').optional()
+    .isInt({min:1, max:10}).withMessage('Ending hunger level must be between 1 and 10.'),
+  
+  sanitizeBody('*').trim().escape(),
+
+  (req, res, next) => {
+    console.log(req.body)
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(422).json({ errors: errors.mapped() });
+    }
+    else{
+      var token = req.headers.authorization.substring(4);
+      var userInfo = jwt.decode(req.headers.authorization.substring(4));
+      var mealId = req.body.mealId;
+      var updatedFields = req.body
+      delete updatedFields.mealId;
+      console.log(updatedFields)
+
+      var query = {mealUser: ObjectId(userInfo._id), _id: ObjectId(mealId)};
+      Meal.findOneAndUpdate(query, updatedFields, {}, function (err, meal) {
+        if (err) { return next(err); }
+        res.status(200).json({
+          success: true,
+          meal: meal
+        });
+      });
+    }
+  }
+];
 
 exports.delete_meal = function(req, res) {
   res.send('NOT IMPLEMENTED: Delete Meal Endpoint');
