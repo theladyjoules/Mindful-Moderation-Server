@@ -130,7 +130,7 @@ exports.update_meal = [
       console.log(updatedFields)
 
       var query = {mealUser: ObjectId(userInfo._id), _id: ObjectId(mealId)};
-      Meal.findOneAndUpdate(query, updatedFields, {}, function (err, meal) {
+      Meal.findOneAndUpdate(query, updatedFields, {new: true}, function (err, meal) {
         if (err) { return next(err); }
         res.status(200).json({
           success: true,
