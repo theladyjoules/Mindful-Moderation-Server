@@ -30,4 +30,6 @@ router.post('/meal/delete', meal_controller.delete_meal);
 
 router.get('/day/:day', requireAuth, meal_controller.view_meals_by_day);
 
+router.get('/month/:month/:year', requireAuth, meal_controller.view_meals_by_month);
+
 module.exports = router;

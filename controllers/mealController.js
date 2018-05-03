@@ -103,6 +103,32 @@ exports.view_meals_by_day = function(req, res) {
     });
 };
 
+
+exports.view_meals_by_month = function(req, res) {
+  var token = req.headers.authorization.substring(4);
+  var userInfo = jwt.decode(req.headers.authorization.substring(4));
+  const month = moment(req.params.year + req.params.month + "01")
+  console.log(month)
+  Meal.find({mealUser: ObjectId(userInfo._id), mealDate: {"$gte": month.toDate(), "$lt": month.endOf('month').toDate() }}).sort({ 'mealDate': 1 }).select('mealDate mealDateHumanFormat mealTimeHumanFormat mealName mealHungerBefore mealHungerAfter')
+    .exec(function (err, results) {
+      if (err) { return next(err); }
+      let meals = {}
+      for(let meal in results){
+        if(results[meal].mealDateHumanFormat in meals){
+          meals[results[meal].mealDateHumanFormat][results[meal]._id] = results[meal]
+        }
+        else{
+          meals[results[meal].mealDateHumanFormat] = {[results[meal]._id]:results[meal]}
+        }
+      }
+      res.json({
+        'success': true,
+        'month': req.params.month + req.params.year,
+        'meals': meals
+      });
+    });
+};
+
 exports.update_meal = [
   check('mealDate').optional()
     .custom(isValidDate).withMessage('Meal date must be a valid date.'),

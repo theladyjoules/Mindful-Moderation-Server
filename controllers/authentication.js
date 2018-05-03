@@ -47,7 +47,8 @@ exports.login = function(req, res, next) {
 
   res.status(200).json({
     token: 'JWT ' + generateToken(userInfo),
-    user: userInfo
+    user: userInfo,
+    expires: 10080
   });
 }
 
@@ -103,7 +104,8 @@ exports.register = function(req, res, next) {
 
         res.status(201).json({
           token: 'JWT ' + generateToken(userInfo),
-          user: userInfo
+          user: userInfo,
+          expires: 10080
         });
       });
   });
