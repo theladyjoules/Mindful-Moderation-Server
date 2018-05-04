@@ -74,11 +74,20 @@ exports.view_meal = function(req, res) {
   Meal.findOne({mealUser: ObjectId(userInfo._id), _id: ObjectId(req.params.id)})
     .exec(function (err, results) {
       if (err) { return next(err); }
-      res.json({
-        'success': true,
-        'day': results.mealDateHumanFormat,
-        'meal': { [results._id]: results }
-      });
+
+      if(results && Object.keys(results).length){
+        res.json({
+          'success': true,
+          'day': results.mealDateHumanFormat,
+          'meal': { [results._id]: results }
+        });
+      }
+      else{
+        res.json({
+          'error': true,
+          'message': 'The requested meal does not exist.'
+        });
+      }
     });
 };
 
@@ -142,7 +151,6 @@ exports.update_meal = [
   sanitizeBody('*').trim().escape(),
 
   (req, res, next) => {
-    console.log(req.body)
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(422).json({ errors: errors.mapped() });
@@ -151,9 +159,8 @@ exports.update_meal = [
       var token = req.headers.authorization.substring(4);
       var userInfo = jwt.decode(req.headers.authorization.substring(4));
       var mealId = req.body.mealId;
-      var updatedFields = req.body
+      var updatedFields = req.body;
       delete updatedFields.mealId;
-      console.log(updatedFields)
 
       var query = {mealUser: ObjectId(userInfo._id), _id: ObjectId(mealId)};
       Meal.findOneAndUpdate(query, updatedFields, {new: true}, function (err, meal) {
@@ -167,6 +174,28 @@ exports.update_meal = [
   }
 ];
 
-exports.delete_meal = function(req, res) {
-  res.send('NOT IMPLEMENTED: Delete Meal Endpoint');
-};
+exports.delete_meal = [
+  check('mealId')
+    .exists().withMessage('Meal ID is required for deletion.'),
+
+  (req, res, next) => {
+    console.log(req.body)
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(422).json({ errors: errors.mapped() });
+    }
+    else{
+      var token = req.headers.authorization.substring(4);
+      var userInfo = jwt.decode(req.headers.authorization.substring(4));
+      var mealId = req.body.mealId;
+      var query = {mealUser: ObjectId(userInfo._id), _id: ObjectId(mealId)};
+      Meal.findOneAndRemove(query, function (err, meal) {
+        if (err) { return next(err); }
+        res.status(200).json({
+          success: true,
+          meal: meal._id
+        });
+      });
+    }
+  }
+];
