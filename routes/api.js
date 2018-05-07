@@ -32,4 +32,7 @@ router.get('/day/:day', requireAuth, meal_controller.view_meals_by_day);
 
 router.get('/month/:month/:year', requireAuth, meal_controller.view_meals_by_month);
 
+router.get('/stats/', requireAuth, meal_controller.get_stats);
+
 module.exports = router;
+

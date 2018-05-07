@@ -5,6 +5,7 @@ const { sanitizeBody } = require('express-validator/filter');
 const { isValidDate } = require('../utilities/validation');
 var moment = require('moment');
 var ObjectId = require('mongodb').ObjectID;
+var Promise = require('promise');
 
 exports.create_meal = [
   check('mealDate')
@@ -55,8 +56,6 @@ exports.create_meal = [
         mealNotes: req.body.mealNotes
       });
 
-
-        console.log(req.body.mealDate)
       meal.save(function (err, meal) {
         if (err) { return next(err); }
         res.status(200).json({
@@ -199,3 +198,81 @@ exports.delete_meal = [
     }
   }
 ];
+
+function occurrences(string, subString, allowOverlapping) {
+
+    string += "";
+    subString += "";
+    if (subString.length <= 0) return (string.length + 1);
+
+    var n = 0,
+        pos = 0,
+        step = allowOverlapping ? 1 : subString.length;
+
+    while (true) {
+        pos = string.indexOf(subString, pos);
+        if (pos >= 0) {
+            ++n;
+            pos += step;
+        } else break;
+    }
+    return n;
+}
+
+exports.get_stats = function(req, res) {
+  var token = req.headers.authorization.substring(4);
+  var userInfo = jwt.decode(req.headers.authorization.substring(4));
+  // NEED TO ORDER BY DATE DESC
+  Meal.find({mealUser: ObjectId(userInfo._id)}, function (err, meals) {
+    if (err) { return next(err); }
+    if(meals && Object.keys(meals).length){
+
+      console.log(meals)
+      let hungerBeforeTotal = 0;
+      let hungerAfterTotal = 0;
+      let durationTotal = 0;
+      let moodConcat = '';
+      let settingConcat= '';
+      let streak = 0;
+      let streakDay = moment().subtract(1, 'day');
+      let mealTotal = meals.length
+      for(let meal in meals){
+        hungerBeforeTotal += meals[meal].mealHungerBefore;
+        hungerAfterTotal += meals[meal].mealHungerAfter;
+        durationTotal += meals[meal].mealDuration;
+        let moodLength = meals[meal].mealMood.length;
+        for (i = 0; i < moodLength; i++) {
+          moodConcat += '0' + meals[meal].mealMood + '0'
+        }
+        settingConcat += '0' + meals[meal].mealSetting + '0'
+        if(streakDay){
+          mealDateMoment = meals[meal]mealDate;
+          if(mealDateMoment.isSame(streakDay, 'day')){
+            streakDay.subtract(1, 'day');
+            streak++;
+          }
+          else if(mealDateMoment.isAfter(streakDay, 'day')){
+            streakDay = null;
+          }
+        }
+      }
+
+      res.json({
+        success: true,
+        stats: {
+          totalMeals: mealTotal,
+          averageHungerBefore: hungerBeforeTotal/mealTotal,
+          averageHungerAfter: averageHungerAfter/mealTotal,
+          averageMealDuration: durationTotal/mealTotal,
+          
+        }
+      });
+    }
+    else{
+      res.json({
+        'error': true,
+        'message': 'Error fetching stats.'
+      });
+    }
+  });
+};
