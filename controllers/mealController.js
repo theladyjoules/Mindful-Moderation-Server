@@ -5,7 +5,7 @@ const { sanitizeBody } = require('express-validator/filter');
 const { isValidDate } = require('../utilities/validation');
 var moment = require('moment');
 var ObjectId = require('mongodb').ObjectID;
-var Promise = require('promise');
+
 
 exports.create_meal = [
   check('mealDate')
@@ -296,5 +296,58 @@ exports.get_stats = function(req, res, next) {
         'message': 'Error fetching stats.'
       });
     }
+  });
+};
+
+exports.import = [
+  // check('mealId')
+  //   .exists().withMessage('Meal ID is required for deletion.'),
+
+  (req, res, next) => {
+    res.status(200).json({
+      success: true
+    });
+    // console.log(req)
+    // const errors = validationResult(req);
+    // if (!errors.isEmpty()) {
+    //   return res.status(422).json({ errors: errors.mapped() });
+    // }
+    // else{
+    //   var token = req.headers.authorization.substring(4);
+    //   var userInfo = jwt.decode(req.headers.authorization.substring(4));
+    //   var mealId = req.body.mealId;
+    //   var query = {mealUser: ObjectId(userInfo._id), _id: ObjectId(mealId)};
+    //   Meal.findOneAndRemove(query, function (err, meal) {
+    //     if (err) { return next(err); }
+    //     res.status(200).json({
+    //       success: true,
+    //       meal: meal._id
+    //     });
+    //   });
+    // }
+  }
+];
+
+exports.export = function(req, res) {
+  var token = req.headers.authorization.substring(4);
+  var userInfo = jwt.decode(req.headers.authorization.substring(4));
+  Meal.find({mealUser: ObjectId(userInfo._id)}).sort({ 'mealDate': 1 }).exec(function (err, meals) {
+      if (err) { return next(err); }
+
+      if(meals && Object.keys(meals).length){
+        const Json2csvParser = require('json2csv').Parser;
+        var fields = ['mealUser', 'mealDate', 'mealDateHumanFormat', 'mealTimeHumanFormat', 'mealDateFormFormat', 'mealTimeFormFormat', 'mealDuration', 'mealName', 'mealFoods', 'mealHungerBefore', 'mealHungerAfter', 'mealSetting', 'mealMood', 'mealNotes'];
+        const json2csvParser = new Json2csvParser({ fields });
+        const csv = json2csvParser.parse(meals);
+        res.setHeader('Content-disposition', 'attachment; filename=testing.csv');
+        res.set('Content-Type', 'text/csv');
+        res.status(200).send(csv);
+      }
+      else{
+        res.json({
+          'success': false,
+          'message': 'This user has no meals logged.'
+        });
+      }
   });
 };

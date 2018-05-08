@@ -28,6 +28,9 @@ router.get('/meal/:id', requireAuth, meal_controller.view_meal);
 router.post('/meal/update', meal_controller.update_meal);
 router.post('/meal/delete', meal_controller.delete_meal);
 
+router.post('/import', requireAuth, meal_controller.import);
+router.get('/export', requireAuth, meal_controller.export);
+
 router.get('/day/:day', requireAuth, meal_controller.view_meals_by_day);
 
 router.get('/month/:month/:year', requireAuth, meal_controller.view_meals_by_month);
