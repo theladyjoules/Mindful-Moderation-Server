@@ -199,72 +199,94 @@ exports.delete_meal = [
   }
 ];
 
-function occurrences(string, subString, allowOverlapping) {
-
-    string += "";
-    subString += "";
-    if (subString.length <= 0) return (string.length + 1);
-
-    var n = 0,
-        pos = 0,
-        step = allowOverlapping ? 1 : subString.length;
-
-    while (true) {
-        pos = string.indexOf(subString, pos);
-        if (pos >= 0) {
-            ++n;
-            pos += step;
-        } else break;
-    }
-    return n;
-}
-
-exports.get_stats = function(req, res) {
+exports.get_stats = function(req, res, next) {
   var token = req.headers.authorization.substring(4);
   var userInfo = jwt.decode(req.headers.authorization.substring(4));
   // NEED TO ORDER BY DATE DESC
-  Meal.find({mealUser: ObjectId(userInfo._id)}, function (err, meals) {
+  console.log(req.params)
+  const month = (req.params.year === 'all' && req.params.month === 'all') ? null : moment(req.params.year + req.params.month + "01");
+  query = (month) ? { mealUser: ObjectId(userInfo._id), mealDate: {"$gte": month.toDate(), "$lt": month.endOf('month').toDate() }} : { mealUser: ObjectId(userInfo._id)};
+  Meal.find(query).sort({ 'mealDate': -1 }).exec(function (err, meals) {
     if (err) { return next(err); }
     if(meals && Object.keys(meals).length){
 
-      console.log(meals)
+      // console.log(meals)
       let hungerBeforeTotal = 0;
       let hungerAfterTotal = 0;
       let durationTotal = 0;
-      let moodConcat = '';
-      let settingConcat= '';
+      let moods = {};
+      let settings = {};
       let streak = 0;
-      let streakDay = moment().subtract(1, 'day');
+      let streakDay = moment();
       let mealTotal = meals.length
       for(let meal in meals){
-        hungerBeforeTotal += meals[meal].mealHungerBefore;
-        hungerAfterTotal += meals[meal].mealHungerAfter;
+        hungerBeforeTotal += Number(meals[meal].mealHungerBefore);
+        hungerAfterTotal += Number(meals[meal].mealHungerAfter);
         durationTotal += meals[meal].mealDuration;
         let moodLength = meals[meal].mealMood.length;
         for (i = 0; i < moodLength; i++) {
-          moodConcat += '0' + meals[meal].mealMood + '0'
+          if(meals[meal].mealMood[i] in moods){
+            moods[meals[meal].mealMood[i]] = moods[meals[meal].mealMood[i]] + 1
+          }
+          else{
+            moods[meals[meal].mealMood[i]] = 1
+          }
         }
-        settingConcat += '0' + meals[meal].mealSetting + '0'
+        if(meals[meal].mealSetting in settings){
+          settings[meals[meal].mealSetting] = settings[meals[meal].mealSetting] + 1
+        }
+        else{
+          settings[meals[meal].mealSetting] = 1
+        }
         if(streakDay){
-          mealDateMoment = meals[meal]mealDate;
+          mealDateMoment = moment(meals[meal].mealDate);
           if(mealDateMoment.isSame(streakDay, 'day')){
+            // console.log('meal is the same day as the streak day')
             streakDay.subtract(1, 'day');
             streak++;
           }
-          else if(mealDateMoment.isAfter(streakDay, 'day')){
-            streakDay = null;
+          else if(mealDateMoment.isBefore(streakDay, 'day')){
+            if(mealDateMoment.isSame(moment().subtract(1, 'day'), 'day') && streak === 0){
+              // console.log('meal date is the same as yesterday and the streak is zero')
+              streakDay.subtract(2, 'day');
+              streak++;
+            }
+            else{
+              // console.log('meal is before the streak day')
+              streakDay = null;
+            }
           }
         }
       }
 
+      var sortedMoods = [];
+      var sortedSettings = [];
+      for (var mood in moods) {
+          sortedMoods.push([mood, moods[mood]]);
+      }
+      for (var setting in settings) {
+          sortedSettings.push([setting, settings[setting]]);
+      }
+      sortedMoods.sort(function(a, b) {
+          return b[1] - a[1];
+      });
+      sortedSettings.sort(function(a, b) {
+          return b[1] - a[1];
+      });
+      // console.log(sortedMoods)
+      // console.log(sortedSettings)
+      var key = (month) ? req.params.month + '-' + req.params.year : 'allTimeStats'
       res.json({
         success: true,
+        key: key,
         stats: {
           totalMeals: mealTotal,
-          averageHungerBefore: hungerBeforeTotal/mealTotal,
-          averageHungerAfter: averageHungerAfter/mealTotal,
-          averageMealDuration: durationTotal/mealTotal,
-          
+          streak: streak,
+          averageHungerBefore: Math.round( (hungerBeforeTotal/mealTotal) * 10 ) / 10,
+          averageHungerAfter: Math.round( (hungerAfterTotal/mealTotal) * 10 ) / 10,
+          averageMealDuration: Math.round( (durationTotal/mealTotal) * 10 ) / 10,
+          topMoods: [ sortedMoods[0], sortedMoods[1], sortedMoods[2]],
+          topSettings: [ sortedSettings[0], sortedSettings[1], sortedSettings[2]]
         }
       });
     }
