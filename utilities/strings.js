@@ -129,3 +129,7 @@ exports.string = (s) => {
   }
   return string;
 }
+
+exports.decodeString = (s) => {
+  return s.replace(new RegExp("&"+"#"+"x27;", "g"), "'")
+}

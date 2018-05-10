@@ -3,6 +3,7 @@ var jwt = require('jsonwebtoken');
 const { check, validationResult } = require('express-validator/check');
 const { sanitizeBody } = require('express-validator/filter');
 const { isValidDate, isValidMealType } = require('../utilities/validation');
+const { decodeString } = require('../utilities/strings');
 var moment = require('moment');
 var ObjectId = require('mongodb').ObjectID;
 var mongoose = require('mongoose');
@@ -42,6 +43,11 @@ exports.create_meal = [
     else{
       var token = req.headers.authorization.substring(4);
       var userInfo = jwt.decode(req.headers.authorization.substring(4));
+      if('mealMood' in req.body){
+        for (i = 0; i < req.body.mealMood; i++) {
+          req.body.mealMood[i] = decodeString(req.body.mealMood[i])
+        }
+      }
       var meal = new Meal({ 
         mealUser: userInfo._id,
         mealDate: req.body.mealDate,
@@ -51,13 +57,13 @@ exports.create_meal = [
         mealTimeFormFormat: req.body.mealTimeFormFormat,
         mealType: req.body.mealType, 
         mealDuration: req.body.mealDuration, 
-        mealName: req.body.mealName,
-        mealFoods: req.body.mealFoods,
+        mealName: 'mealName' in req.body ? decodeString(req.body.mealName) : '',
+        mealFoods: 'mealFoods' in req.body ? decodeString(req.body.mealFoods) : '',
         mealHungerBefore: req.body.mealHungerBefore,
         mealHungerAfter: req.body.mealHungerAfter,
-        mealMood: req.body.mealMood,
-        mealSetting: req.body.mealSetting,
-        mealNotes: req.body.mealNotes
+        mealMood: 'mealMood' in req.body ? req.body.mealMood : [],
+        mealSetting: 'mealSetting' in req.body ? decodeString(req.body.mealSetting) : '',
+        mealNotes: 'mealNotes' in req.body ? decodeString(req.body.mealNotes) : ''
       });
 
       meal.save(function (err, meal) {
@@ -157,7 +163,6 @@ exports.update_meal = [
   sanitizeBody('*').trim().escape(),
 
   (req, res, next) => {
-    console.log(req.body.mealNotes.replace(new RegExp("&"+"#"+"x27;", "g"), "'"))
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(422).json({ errors: errors.mapped() });
@@ -168,6 +173,24 @@ exports.update_meal = [
       var mealId = req.body.mealId;
       var updatedFields = req.body;
       delete updatedFields.mealId;
+
+      if('mealName' in updatedFields){
+        updatedFields.mealName = decodeString(updatedFields.mealName)
+      }
+      if('mealFoods' in updatedFields){
+        updatedFields.mealFoods = decodeString(updatedFields.mealFoods)
+      }
+      if('mealSetting' in updatedFields){
+        updatedFields.mealSetting = decodeString(updatedFields.mealSetting)
+      }
+      if('mealNotes' in updatedFields){
+        updatedFields.mealNotes = decodeString(updatedFields.mealNotes)
+      }
+      if('mealMood' in updatedFields){
+        for (i = 0; i < updatedFields.mealMood; i++) {
+          updatedFields.mealMood[i] = decodeString(updatedFields.mealMood[i])
+        }
+      }
 
       console.log(updatedFields)
       var query = {mealUser: ObjectId(userInfo._id), _id: ObjectId(mealId)};
