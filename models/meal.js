@@ -10,6 +10,7 @@ var MealSchema = new Schema(
     mealTimeHumanFormat: {type: String, required: true},
     mealDateFormFormat: {type: String, required: true},
     mealTimeFormFormat: {type: String, required: true},
+    mealType: {type: String},
     mealDuration: {type: Number},
     mealName: {type: String},
     mealFoods: {type: String},

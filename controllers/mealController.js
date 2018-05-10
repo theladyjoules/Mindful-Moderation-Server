@@ -2,10 +2,11 @@ var Meal = require('../models/meal');
 var jwt = require('jsonwebtoken');
 const { check, validationResult } = require('express-validator/check');
 const { sanitizeBody } = require('express-validator/filter');
-const { isValidDate } = require('../utilities/validation');
+const { isValidDate, isValidMealType } = require('../utilities/validation');
 var moment = require('moment');
 var ObjectId = require('mongodb').ObjectID;
-
+var mongoose = require('mongoose');
+var csv = require('fast-csv');
 
 exports.create_meal = [
   check('mealDate')
@@ -19,6 +20,8 @@ exports.create_meal = [
     .exists().withMessage('Form formatted meal date is required.'),
   check('mealTimeFormFormat')
     .exists().withMessage('Form formatted meal time is required.'),
+  check('mealType').exists()
+    .custom(isValidMealType).withMessage('Meal type must be "snack" or "meal".'),
   check('mealDuration').optional()
     .isNumeric().withMessage('Meal duration must be a number of minutes.'),
   check('mealHungerBefore')
@@ -46,6 +49,7 @@ exports.create_meal = [
         mealTimeHumanFormat: req.body.mealTimeHumanFormat,
         mealDateFormFormat: req.body.mealDateFormFormat,
         mealTimeFormFormat: req.body.mealTimeFormFormat,
+        mealType: req.body.mealType, 
         mealDuration: req.body.mealDuration, 
         mealName: req.body.mealName,
         mealFoods: req.body.mealFoods,
@@ -117,7 +121,7 @@ exports.view_meals_by_month = function(req, res) {
   var userInfo = jwt.decode(req.headers.authorization.substring(4));
   const month = moment(req.params.year + req.params.month + "01")
   console.log(month)
-  Meal.find({mealUser: ObjectId(userInfo._id), mealDate: {"$gte": month.toDate(), "$lt": month.endOf('month').toDate() }}).sort({ 'mealDate': 1 }).select('mealDate mealDateHumanFormat mealTimeHumanFormat mealName mealHungerBefore mealHungerAfter')
+  Meal.find({mealUser: ObjectId(userInfo._id), mealDate: {"$gte": month.toDate(), "$lt": month.endOf('month').toDate() }}).sort({ 'mealDate': 1 }).select('mealDate mealDateHumanFormat mealTimeHumanFormat mealType mealName mealHungerBefore mealHungerAfter')
     .exec(function (err, results) {
       if (err) { return next(err); }
       let meals = {}
@@ -140,6 +144,8 @@ exports.view_meals_by_month = function(req, res) {
 exports.update_meal = [
   check('mealDate').optional()
     .custom(isValidDate).withMessage('Meal date must be a valid date.'),
+  check('mealType').optional()
+    .custom(isValidMealType).withMessage('Meal type must be "snack" or "meal".'),
   check('mealDuration').optional()
     .isNumeric().withMessage('Meal duration must be a number of minutes.'),
   check('mealHungerBefore').optional()
@@ -300,31 +306,50 @@ exports.get_stats = function(req, res, next) {
 };
 
 exports.import = [
-  // check('mealId')
-  //   .exists().withMessage('Meal ID is required for deletion.'),
-
   (req, res, next) => {
-    res.status(200).json({
-      success: true
-    });
-    // console.log(req)
-    // const errors = validationResult(req);
-    // if (!errors.isEmpty()) {
-    //   return res.status(422).json({ errors: errors.mapped() });
-    // }
-    // else{
-    //   var token = req.headers.authorization.substring(4);
-    //   var userInfo = jwt.decode(req.headers.authorization.substring(4));
-    //   var mealId = req.body.mealId;
-    //   var query = {mealUser: ObjectId(userInfo._id), _id: ObjectId(mealId)};
-    //   Meal.findOneAndRemove(query, function (err, meal) {
-    //     if (err) { return next(err); }
-    //     res.status(200).json({
-    //       success: true,
-    //       meal: meal._id
-    //     });
-    //   });
-    // }
+    console.log(req.file)
+    if (!req.file){
+      res.json({
+        'success': false,
+        'message': 'No files found.'
+      });
+    }
+    
+    var token = req.headers.authorization.substring(4);
+    var userInfo = jwt.decode(req.headers.authorization.substring(4));
+
+    var importFile = req.file;
+    var meals = [];
+   
+    csv.fromPath(req.file.path, {headers:true})
+     .on("data", function(data){
+        console.log(data)
+        if(data['mealDateHumanFormat'] && data['mealDateHumanFormat'] !== ''){
+          let mealDateArray = (data['mealDateHumanFormat'].indexOf('/') > -1) ? data['mealDateHumanFormat'].split('/') : data['mealDateHumanFormat'].split('-')
+          let mealDateFormat = mealDateArray[2].length === 4 ? 'MM-DD-YYYY h:mm a' : 'MM-DD-YY h:mm a'
+          let mealDateMoment = moment(data['mealDateHumanFormat'] + '' + data['mealTimeHumanFormat'], mealDateFormat)
+          let mealMoodArray = data['mealMoodString'].split(',')
+          data['_id'] = new mongoose.Types.ObjectId()
+          data['mealDateHumanFormat'] = mealDateMoment.format('MM-DD-YYYY')
+          data['mealUser'] = ObjectId(userInfo._id)
+          data['mealDate'] = mealDateMoment
+          data['mealDateFormFormat'] = mealDateMoment.format('YYYY-MM-DD')
+          data['mealTimeFormFormat'] = mealDateMoment.format('h:mm a')
+          data['mealMood'] = mealMoodArray
+          meals.push(data);
+        }
+     })
+     .on("end", function(){
+        Meal.create(meals, function(err, meals) {
+          if (err) throw err;
+        });
+        
+        res.json({
+          'success': true,
+          'importCount': meals.length
+        });
+     }
+   );
   }
 ];
 
@@ -335,13 +360,16 @@ exports.export = function(req, res) {
       if (err) { return next(err); }
 
       if(meals && Object.keys(meals).length){
+        for(let meal in meals){
+          meals[meal].mealMoodString = meals[meal].mealMood.toString()
+        }
         const Json2csvParser = require('json2csv').Parser;
-        var fields = ['mealUser', 'mealDate', 'mealDateHumanFormat', 'mealTimeHumanFormat', 'mealDateFormFormat', 'mealTimeFormFormat', 'mealDuration', 'mealName', 'mealFoods', 'mealHungerBefore', 'mealHungerAfter', 'mealSetting', 'mealMood', 'mealNotes'];
+        var fields = ['mealDateHumanFormat', 'mealTimeHumanFormat', 'mealType', 'mealDuration', 'mealName', 'mealFoods', 'mealHungerBefore', 'mealHungerAfter', 'mealSetting', 'mealMoodString', 'mealNotes'];
         const json2csvParser = new Json2csvParser({ fields });
-        const csv = json2csvParser.parse(meals);
+        const csvFile = json2csvParser.parse(meals);
         res.setHeader('Content-disposition', 'attachment; filename=testing.csv');
         res.set('Content-Type', 'text/csv');
-        res.status(200).send(csv);
+        res.status(200).send(csvFile);
       }
       else{
         res.json({

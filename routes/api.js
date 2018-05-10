@@ -1,5 +1,7 @@
 var express = require('express');
 var router = express.Router();
+var multer  = require('multer')
+var upload = multer({dest: 'tmp/csv/'})
 var AuthenticationController = require('../controllers/authentication'),
     passportService = require('../config/passport'),
     passport = require('passport');
@@ -28,7 +30,8 @@ router.get('/meal/:id', requireAuth, meal_controller.view_meal);
 router.post('/meal/update', meal_controller.update_meal);
 router.post('/meal/delete', meal_controller.delete_meal);
 
-router.post('/import', requireAuth, meal_controller.import);
+router.post('/import', upload.single('importFile'), requireAuth, meal_controller.import);
+
 router.get('/export', requireAuth, meal_controller.export);
 
 router.get('/day/:day', requireAuth, meal_controller.view_meals_by_day);

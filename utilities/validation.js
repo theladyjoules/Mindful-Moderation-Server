@@ -22,3 +22,7 @@ exports.isInvalidRequiredField = (field) => {
 exports.isValidDate = (value) => {
   return moment(value).isValid()
 }
+
+exports.isValidMealType = (value) => {
+  return value === 'meal' || value === 'snack'
+}
