@@ -121,16 +121,16 @@ exports.view_meals_by_month = function(req, res) {
   var userInfo = jwt.decode(req.headers.authorization.substring(4));
   const month = moment(req.params.year + req.params.month + "01")
   console.log(month)
-  Meal.find({mealUser: ObjectId(userInfo._id), mealDate: {"$gte": month.toDate(), "$lt": month.endOf('month').toDate() }}).sort({ 'mealDate': 1 }).select('mealDate mealDateHumanFormat mealTimeHumanFormat mealType mealName mealHungerBefore mealHungerAfter')
+  Meal.find({mealUser: ObjectId(userInfo._id), mealDate: {"$gte": month.toDate(), "$lt": month.endOf('month').toDate() }}).sort({ 'mealDate': 1 }).select('mealDate mealDateHumanFormat mealTimeHumanFormat mealType mealName mealHungerBefore mealHungerAfter').sort({ 'mealDate': 1 })
     .exec(function (err, results) {
       if (err) { return next(err); }
       let meals = {}
       for(let meal in results){
         if(results[meal].mealDateHumanFormat in meals){
-          meals[results[meal].mealDateHumanFormat][results[meal]._id] = results[meal]
+          meals[results[meal].mealDateHumanFormat].push(results[meal])
         }
         else{
-          meals[results[meal].mealDateHumanFormat] = {[results[meal]._id]:results[meal]}
+          meals[results[meal].mealDateHumanFormat] = [results[meal]]
         }
       }
       res.json({
@@ -142,6 +142,7 @@ exports.view_meals_by_month = function(req, res) {
 };
 
 exports.update_meal = [
+
   check('mealDate').optional()
     .custom(isValidDate).withMessage('Meal date must be a valid date.'),
   check('mealType').optional()
@@ -156,6 +157,7 @@ exports.update_meal = [
   sanitizeBody('*').trim().escape(),
 
   (req, res, next) => {
+    console.log(req.body.mealNotes.replace(new RegExp("&"+"#"+"x27;", "g"), "'"))
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(422).json({ errors: errors.mapped() });
@@ -167,6 +169,7 @@ exports.update_meal = [
       var updatedFields = req.body;
       delete updatedFields.mealId;
 
+      console.log(updatedFields)
       var query = {mealUser: ObjectId(userInfo._id), _id: ObjectId(mealId)};
       Meal.findOneAndUpdate(query, updatedFields, {new: true}, function (err, meal) {
         if (err) { return next(err); }
@@ -326,8 +329,11 @@ exports.import = [
         console.log(data)
         if(data['mealDateHumanFormat'] && data['mealDateHumanFormat'] !== ''){
           let mealDateArray = (data['mealDateHumanFormat'].indexOf('/') > -1) ? data['mealDateHumanFormat'].split('/') : data['mealDateHumanFormat'].split('-')
-          let mealDateFormat = mealDateArray[2].length === 4 ? 'MM-DD-YYYY h:mm a' : 'MM-DD-YY h:mm a'
-          let mealDateMoment = moment(data['mealDateHumanFormat'] + '' + data['mealTimeHumanFormat'], mealDateFormat)
+          let mealDateFormat = mealDateArray[2].length === 4 ? 'MM-DD-YYYY' : 'MM-DD-YY'
+          mealDateFormat += (data['mealTimeHumanFormat'].slice(-2) === 'AM' || data['mealTimeHumanFormat'].slice(-2) === 'PM') ? ' h:mm A' : ' h:mm a'
+          console.log(mealDateFormat)
+          let mealDateMoment = moment(data['mealDateHumanFormat'] + ' ' + data['mealTimeHumanFormat'], mealDateFormat)
+          console.log(mealDateMoment)
           let mealMoodArray = data['mealMoodString'].split(',')
           data['_id'] = new mongoose.Types.ObjectId()
           data['mealDateHumanFormat'] = mealDateMoment.format('MM-DD-YYYY')
