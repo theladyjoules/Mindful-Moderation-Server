@@ -27,10 +27,10 @@ exports.create_meal = [
     .isNumeric().withMessage('Meal duration must be a number of minutes.'),
   check('mealHungerBefore')
     .exists().withMessage('Starting hunger level is required.')
-    .isInt({min:1, max:10}).withMessage('Starting hunger level must be between 1 and 10.'),
+    .isInt({min:0, max:10}).withMessage('Starting hunger level must be between 0 and 10.'),
   check('mealHungerAfter')
     .exists().withMessage('Ending hunger level is required.')
-    .isInt({min:1, max:10}).withMessage('Ending hunger level must be between 1 and 10.'),
+    .isInt({min:0, max:10}).withMessage('Ending hunger level must be between 0 and 10.'),
   
   sanitizeBody('*').trim().escape(),
 
@@ -103,8 +103,7 @@ exports.view_meal = function(req, res) {
 exports.view_meals_by_day = function(req, res) {
   var token = req.headers.authorization.substring(4);
   var userInfo = jwt.decode(req.headers.authorization.substring(4));
-  const dayParts = req.params.day.split("-");
-  const day = moment(dayParts[2] + dayParts[0] + dayParts[1])
+  const day = moment(req.params.day, 'MM-DD-YYYY')
   console.log(day)
   Meal.find({mealUser: ObjectId(userInfo._id), mealDate: {"$gte": day.toDate(), "$lt": day.add(1, 'days').toDate()}}).sort({ 'mealDate': 1 })
     .exec(function (err, results) {
@@ -156,9 +155,9 @@ exports.update_meal = [
   check('mealDuration').optional()
     .isNumeric().withMessage('Meal duration must be a number of minutes.'),
   check('mealHungerBefore').optional()
-    .isInt({min:1, max:10}).withMessage('Starting hunger level must be between 1 and 10.'),
+    .isInt({min:0, max:10}).withMessage('Starting hunger level must be between 0 and 10.'),
   check('mealHungerAfter').optional()
-    .isInt({min:1, max:10}).withMessage('Ending hunger level must be between 1 and 10.'),
+    .isInt({min:0, max:10}).withMessage('Ending hunger level must be between 0 and 10.'),
   
   sanitizeBody('*').trim().escape(),
 
@@ -243,32 +242,63 @@ exports.get_stats = function(req, res, next) {
     if(meals && Object.keys(meals).length){
 
       // console.log(meals)
-      let hungerBeforeTotal = 0;
-      let hungerAfterTotal = 0;
-      let durationTotal = 0;
-      let moods = {};
-      let settings = {};
+      let mealHungerBeforeTotal = 0;
+      let snackHungerBeforeTotal = 0;
+      let mealHungerAfterTotal = 0;
+      let snackHungerAfterTotal = 0;
+      let mealDurationTotal = 0;
+      let snackDurationTotal = 0;
+      let mealMoods = {};
+      let snackMoods = {};
+      let mealSettings = {};
+      let snackSettings = {};
       let streak = 0;
       let streakDay = moment();
-      let mealTotal = meals.length
+      let total = meals.length;
+      let mealTotal = 0;
+      let snackTotal = 0;
+      let days = []
       for(let meal in meals){
-        hungerBeforeTotal += Number(meals[meal].mealHungerBefore);
-        hungerAfterTotal += Number(meals[meal].mealHungerAfter);
-        durationTotal += meals[meal].mealDuration;
+        mealTotal += (meals[meal].mealType === 'meal') ? 1 : 0;
+        snackTotal += (meals[meal].mealType === 'snack') ? 1 : 0;
+        mealHungerBeforeTotal += (meals[meal].mealType === 'meal') ? Number(meals[meal].mealHungerBefore) : 0;
+        snackHungerBeforeTotal += (meals[meal].mealType === 'snack') ? Number(meals[meal].mealHungerBefore) : 0;
+        mealHungerAfterTotal += (meals[meal].mealType === 'meal') ? Number(meals[meal].mealHungerAfter) : 0;
+        snackHungerAfterTotal += (meals[meal].mealType === 'snack') ? Number(meals[meal].mealHungerAfter) : 0;
+        mealDurationTotal += (meals[meal].mealType === 'meal') ? meals[meal].mealDuration : 0;
+        snackDurationTotal += (meals[meal].mealType === 'snack') ? meals[meal].mealDuration : 0;
         let moodLength = meals[meal].mealMood.length;
-        for (i = 0; i < moodLength; i++) {
-          if(meals[meal].mealMood[i] in moods){
-            moods[meals[meal].mealMood[i]] = moods[meals[meal].mealMood[i]] + 1
+        if(meals[meal].mealType === 'meal'){
+          for (i = 0; i < moodLength; i++) {
+            if(meals[meal].mealMood[i] in mealMoods){
+              mealMoods[meals[meal].mealMood[i]] = mealMoods[meals[meal].mealMood[i]] + 1
+            }
+            else{
+              mealMoods[meals[meal].mealMood[i]] = 1
+            }
+          }
+          if(meals[meal].mealSetting in mealSettings){
+            mealSettings[meals[meal].mealSetting] = mealSettings[meals[meal].mealSetting] + 1
           }
           else{
-            moods[meals[meal].mealMood[i]] = 1
+            mealSettings[meals[meal].mealSetting] = 1
           }
         }
-        if(meals[meal].mealSetting in settings){
-          settings[meals[meal].mealSetting] = settings[meals[meal].mealSetting] + 1
-        }
         else{
-          settings[meals[meal].mealSetting] = 1
+          for (i = 0; i < moodLength; i++) {
+            if(meals[meal].mealMood[i] in snackMoods){
+              snackMoods[meals[meal].mealMood[i]] = snackMoods[meals[meal].mealMood[i]] + 1
+            }
+            else{
+              snackMoods[meals[meal].mealMood[i]] = 1
+            }
+          }
+          if(meals[meal].mealSetting in snackSettings){
+            snackSettings[meals[meal].mealSetting] = snackSettings[meals[meal].mealSetting] + 1
+          }
+          else{
+            snackSettings[meals[meal].mealSetting] = 1
+          }
         }
         if(streakDay){
           mealDateMoment = moment(meals[meal].mealDate);
@@ -289,21 +319,38 @@ exports.get_stats = function(req, res, next) {
             }
           }
         }
+        if(days.indexOf(meals[meal].mealDateHumanFormat) === -1){
+          days.push(meals[meal].mealDateHumanFormat)
+        }
       }
 
-      var sortedMoods = [];
-      var sortedSettings = [];
-      for (var mood in moods) {
-          sortedMoods.push([mood, moods[mood]]);
+      var sortedMealMoods = [];
+      var sortedSnackMoods = [];
+      var sortedMealSettings = [];
+      var sortedSnackSettings = [];
+      for (var mood in mealMoods) {
+        sortedMealMoods.push([mood, mealMoods[mood]]);
       }
-      for (var setting in settings) {
-          sortedSettings.push([setting, settings[setting]]);
+      for (var mood in snackMoods) {
+        sortedSnackMoods.push([mood, snackMoods[mood]]);
       }
-      sortedMoods.sort(function(a, b) {
-          return b[1] - a[1];
+      for (var setting in mealSettings) {
+        sortedMealSettings.push([setting, mealSettings[setting]]);
+      }
+      for (var setting in snackSettings) {
+        sortedSnackSettings.push([setting, snackSettings[setting]]);
+      }
+      sortedMealMoods.sort(function(a, b) {
+        return b[1] - a[1];
       });
-      sortedSettings.sort(function(a, b) {
-          return b[1] - a[1];
+      sortedSnackMoods.sort(function(a, b) {
+        return b[1] - a[1];
+      });
+      sortedMealSettings.sort(function(a, b) {
+        return b[1] - a[1];
+      });
+      sortedSnackSettings.sort(function(a, b) {
+        return b[1] - a[1];
       });
       // console.log(sortedMoods)
       // console.log(sortedSettings)
@@ -312,13 +359,26 @@ exports.get_stats = function(req, res, next) {
         success: true,
         key: key,
         stats: {
-          totalMeals: mealTotal,
+          total: total,
           streak: streak,
-          averageHungerBefore: Math.round( (hungerBeforeTotal/mealTotal) * 10 ) / 10,
-          averageHungerAfter: Math.round( (hungerAfterTotal/mealTotal) * 10 ) / 10,
-          averageMealDuration: Math.round( (durationTotal/mealTotal) * 10 ) / 10,
-          topMoods: [ sortedMoods[0], sortedMoods[1], sortedMoods[2]],
-          topSettings: [ sortedSettings[0], sortedSettings[1], sortedSettings[2]]
+          meal: {
+            mealTotal: mealTotal,
+            averageMealsPerDay: Math.round( (mealTotal/days.length) * 10 ) / 10,
+            averageHungerBefore: Math.round( (mealHungerBeforeTotal/mealTotal) * 10 ) / 10,
+            averageHungerAfter: Math.round( (mealHungerAfterTotal/mealTotal) * 10 ) / 10,
+            averageMealDuration: Math.round( (mealDurationTotal/mealTotal) * 10 ) / 10,
+            topMoods: [ sortedMealMoods[0], sortedMealMoods[1], sortedMealMoods[2]],
+            topSettings: [ sortedMealSettings[0], sortedMealSettings[1], sortedMealSettings[2]]
+          },
+          snack: {
+            snackTotal: snackTotal,
+            averageSnacksPerDay: Math.round( (snackTotal/days.length) * 10 ) / 10,
+            averageHungerBefore: Math.round( (snackHungerBeforeTotal/snackTotal) * 10 ) / 10,
+            averageHungerAfter: Math.round( (snackHungerAfterTotal/snackTotal) * 10 ) / 10,
+            averageMealDuration: Math.round( (snackDurationTotal/snackTotal) * 10 ) / 10,
+            topMoods: [ sortedSnackMoods[0], sortedSnackMoods[1], sortedSnackMoods[2]],
+            topSettings: [ sortedSnackSettings[0], sortedSnackSettings[1], sortedSnackSettings[2]]
+          }
         }
       });
     }

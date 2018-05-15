@@ -42,7 +42,6 @@ exports.account = function(req, res, next) {
 // Login Route
 //========================================
 exports.login = function(req, res, next) {
-  console.log('login called')
 
   let userInfo = setUserInfo(req.user);
 
