@@ -104,7 +104,6 @@ exports.view_meals_by_day = function(req, res) {
   var token = req.headers.authorization.substring(4);
   var userInfo = jwt.decode(req.headers.authorization.substring(4));
   const day = moment(req.params.day, 'MM-DD-YYYY')
-  console.log(day)
   Meal.find({mealUser: ObjectId(userInfo._id), mealDate: {"$gte": day.toDate(), "$lt": day.add(1, 'days').toDate()}}).sort({ 'mealDate': 1 })
     .exec(function (err, results) {
       if (err) { return next(err); }
@@ -125,7 +124,6 @@ exports.view_meals_by_month = function(req, res) {
   var token = req.headers.authorization.substring(4);
   var userInfo = jwt.decode(req.headers.authorization.substring(4));
   const month = moment(req.params.year + req.params.month + "01")
-  console.log(month)
   Meal.find({mealUser: ObjectId(userInfo._id), mealDate: {"$gte": month.toDate(), "$lt": month.endOf('month').toDate() }}).sort({ 'mealDate': 1 }).select('mealDate mealDateHumanFormat mealTimeHumanFormat mealType mealName mealHungerBefore mealHungerAfter').sort({ 'mealDate': 1 })
     .exec(function (err, results) {
       if (err) { return next(err); }
@@ -190,8 +188,6 @@ exports.update_meal = [
           updatedFields.mealMood[i] = decodeString(updatedFields.mealMood[i])
         }
       }
-
-      console.log(updatedFields)
       var query = {mealUser: ObjectId(userInfo._id), _id: ObjectId(mealId)};
       Meal.findOneAndUpdate(query, updatedFields, {new: true}, function (err, meal) {
         if (err) { return next(err); }
@@ -209,7 +205,6 @@ exports.delete_meal = [
     .exists().withMessage('Meal ID is required for deletion.'),
 
   (req, res, next) => {
-    console.log(req.body)
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(422).json({ errors: errors.mapped() });
@@ -233,15 +228,11 @@ exports.delete_meal = [
 exports.get_stats = function(req, res, next) {
   var token = req.headers.authorization.substring(4);
   var userInfo = jwt.decode(req.headers.authorization.substring(4));
-  // NEED TO ORDER BY DATE DESC
-  console.log(req.params)
   const month = (req.params.year === 'all' && req.params.month === 'all') ? null : moment(req.params.year + req.params.month + "01");
   query = (month) ? { mealUser: ObjectId(userInfo._id), mealDate: {"$gte": month.toDate(), "$lt": month.endOf('month').toDate() }} : { mealUser: ObjectId(userInfo._id)};
   Meal.find(query).sort({ 'mealDate': -1 }).exec(function (err, meals) {
     if (err) { return next(err); }
     if(meals && Object.keys(meals).length){
-
-      // console.log(meals)
       let mealHungerBeforeTotal = 0;
       let snackHungerBeforeTotal = 0;
       let mealHungerAfterTotal = 0;
@@ -303,18 +294,15 @@ exports.get_stats = function(req, res, next) {
         if(streakDay){
           mealDateMoment = moment(meals[meal].mealDate);
           if(mealDateMoment.isSame(streakDay, 'day')){
-            // console.log('meal is the same day as the streak day')
             streakDay.subtract(1, 'day');
             streak++;
           }
           else if(mealDateMoment.isBefore(streakDay, 'day')){
             if(mealDateMoment.isSame(moment().subtract(1, 'day'), 'day') && streak === 0){
-              // console.log('meal date is the same as yesterday and the streak is zero')
               streakDay.subtract(2, 'day');
               streak++;
             }
             else{
-              // console.log('meal is before the streak day')
               streakDay = null;
             }
           }
@@ -352,8 +340,6 @@ exports.get_stats = function(req, res, next) {
       sortedSnackSettings.sort(function(a, b) {
         return b[1] - a[1];
       });
-      // console.log(sortedMoods)
-      // console.log(sortedSettings)
       var key = (month) ? req.params.month + '-' + req.params.year : 'allTimeStats'
       res.json({
         success: true,
@@ -393,7 +379,6 @@ exports.get_stats = function(req, res, next) {
 
 exports.import = [
   (req, res, next) => {
-    console.log(req.file)
     if (!req.file){
       res.json({
         'success': false,
@@ -409,14 +394,11 @@ exports.import = [
    
     csv.fromPath(req.file.path, {headers:true})
      .on("data", function(data){
-        console.log(data)
         if(data['mealDateHumanFormat'] && data['mealDateHumanFormat'] !== ''){
           let mealDateArray = (data['mealDateHumanFormat'].indexOf('/') > -1) ? data['mealDateHumanFormat'].split('/') : data['mealDateHumanFormat'].split('-')
           let mealDateFormat = mealDateArray[2].length === 4 ? 'MM-DD-YYYY' : 'MM-DD-YY'
           mealDateFormat += (data['mealTimeHumanFormat'].slice(-2) === 'AM' || data['mealTimeHumanFormat'].slice(-2) === 'PM') ? ' h:mm A' : ' h:mm a'
-          console.log(mealDateFormat)
           let mealDateMoment = moment(data['mealDateHumanFormat'] + ' ' + data['mealTimeHumanFormat'], mealDateFormat)
-          console.log(mealDateMoment)
           let mealMoodArray = data['mealMoodString'].split(',')
           data['_id'] = new mongoose.Types.ObjectId()
           data['mealDateHumanFormat'] = mealDateMoment.format('MM-DD-YYYY')

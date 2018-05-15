@@ -7,6 +7,8 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var bodyParser = require('body-parser');
 var config = require('./config/main');
+var compression = require('compression');
+var helmet = require('helmet');
 
 var staticUrl = '/static';
 var publicFolder = path.resolve(__dirname, './public')//make sure you reference the right path
@@ -25,6 +27,8 @@ db.on('error', console.error.bind(console, 'MongoDB connection error:'));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'pug');
 
+app.use(helmet());
+app.use(compression());
 app.use(bodyParser.urlencoded({ extended: true }));  
 app.use(bodyParser.json());  
 app.use(cors({
