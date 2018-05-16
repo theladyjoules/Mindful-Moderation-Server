@@ -115,7 +115,7 @@ exports.view_meals_by_day = function(req, res) {
         'success': true,
         'day': req.params.day,
         'meals': meals,
-        'serverOffset': moment().utcOffset();
+        'serverOffset': moment().utcOffset()
       });
     });
 };
