@@ -104,8 +104,8 @@ exports.view_meals_by_day = function(req, res) {
   var token = req.headers.authorization.substring(4);
   var userInfo = jwt.decode(req.headers.authorization.substring(4));
   const day = moment(req.params.day + ' 12:00 am', 'MM-DD-YYYY HH:mm a')
-  const startDay = new Date(day.clone().format('YYYY-MM-DD HH:mm'))
-  const endDay = new Date(day.clone().endOf('day').format('YYYY-MM-DD HH:mm'))
+  const startDay = new Date(day.clone().utcOffset(Number(req.params.offset)).format('YYYY-MM-DD HH:mm'))
+  const endDay = new Date(day.clone().utcOffset(Number(req.params.offset)).endOf('day').format('YYYY-MM-DD HH:mm'))
   Meal.find({mealUser: ObjectId(userInfo._id), mealDate: {"$gte": startDay, "$lt": endDay}}).sort({ 'mealDate': 1 })
     .exec(function (err, results) {
       if (err) { return next(err); }
