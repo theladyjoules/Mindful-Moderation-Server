@@ -34,7 +34,7 @@ router.post('/import', upload.single('importFile'), requireAuth, meal_controller
 
 router.get('/export', requireAuth, meal_controller.export);
 
-router.get('/day/:day', requireAuth, meal_controller.view_meals_by_day);
+router.get('/day/:day/:offset', requireAuth, meal_controller.view_meals_by_day);
 
 router.get('/month/:month/:year', requireAuth, meal_controller.view_meals_by_month);
 

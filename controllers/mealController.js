@@ -103,7 +103,7 @@ exports.view_meal = function(req, res) {
 exports.view_meals_by_day = function(req, res) {
   var token = req.headers.authorization.substring(4);
   var userInfo = jwt.decode(req.headers.authorization.substring(4));
-  const day = moment(req.params.day, 'MM-DD-YYYY')
+  const day = moment(req.params.day, 'MM-DD-YYYY').utcOffset(req.params.offset)
   Meal.find({mealUser: ObjectId(userInfo._id), mealDate: {"$gte": day.toDate(), "$lt": day.add(1, 'days').toDate()}}).sort({ 'mealDate': 1 })
     .exec(function (err, results) {
       if (err) { return next(err); }
@@ -114,8 +114,7 @@ exports.view_meals_by_day = function(req, res) {
       res.json({
         'success': true,
         'day': req.params.day,
-        'meals': meals,
-        'serverOffset': moment().utcOffset()
+        'meals': meals
       });
     });
 };
