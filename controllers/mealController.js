@@ -104,7 +104,9 @@ exports.view_meals_by_day = function(req, res) {
   var token = req.headers.authorization.substring(4);
   var userInfo = jwt.decode(req.headers.authorization.substring(4));
   const day = moment(req.params.day, 'MM-DD-YYYY').utcOffset(req.params.offset)
-  Meal.find({mealUser: ObjectId(userInfo._id), mealDate: {"$gte": day.toDate(), "$lt": day.add(1, 'days').toDate()}}).sort({ 'mealDate': 1 })
+  const startDay = new Date(day.format('YYYY-MM-DD HH:mm'))
+  const endDay = new Date(day.add(1, 'days').format('YYYY-MM-DD HH:mm'))
+  Meal.find({mealUser: ObjectId(userInfo._id), mealDate: {"$gte": startDay, "$lt": endDay}}).sort({ 'mealDate': 1 })
     .exec(function (err, results) {
       if (err) { return next(err); }
       let meals = {}
@@ -116,7 +118,9 @@ exports.view_meals_by_day = function(req, res) {
         'day': req.params.day,
         'meals': meals,
         'offset': req.params.offset,
-        'dayMoment': day
+        'dayMoment': day,
+        'startDay': startDay,
+        'endDay': endDay
       });
     });
 };
