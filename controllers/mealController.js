@@ -118,7 +118,7 @@ exports.view_meals_by_day = function(req, res) {
         'day': req.params.day,
         'meals': meals,
         'clientoffset': moment().utcOffset(req.params.offset),
-        'serveroffset': moment().utcOffset(),
+        'serveroffset': moment(),
         'dayMoment': day,
         'startDay': startDay,
         'endDay': endDay
