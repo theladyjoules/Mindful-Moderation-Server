@@ -130,6 +130,7 @@ exports.view_meals_by_month = function(req, res) {
   var token = req.headers.authorization.substring(4);
   var userInfo = jwt.decode(req.headers.authorization.substring(4));
   const month = moment(req.params.year + req.params.month + '01 12:00 am', 'YYMMDD HH:mm a')
+  console.log(month)
   const startMonth = new Date(month.clone().utcOffset(Math.abs(Number(req.params.offset))).format('YYYY-MM-DD HH:mm'))
   const endMonth = new Date(month.clone().endOf('day').utcOffset(Math.abs(Number(req.params.offset))).format('YYYY-MM-DD HH:mm'))
   Meal.find({mealUser: ObjectId(userInfo._id), mealDate: {"$gte": startMonth, "$lt": endMonth }}).sort({ 'mealDate': 1 }).select('mealDate mealDateHumanFormat mealTimeHumanFormat mealType mealName mealHungerBefore mealHungerAfter').sort({ 'mealDate': 1 })
