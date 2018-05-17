@@ -131,5 +131,8 @@ exports.string = (s) => {
 }
 
 exports.decodeString = (s) => {
-  return s.replace(new RegExp("&"+"#"+"x27;", "g"), "'")
+  s = s.replace(new RegExp("&"+"amp;", "g"), "&")
+  s = s.replace(new RegExp("&"+"#"+"x2F;", "g"), "/")
+  s = s.replace(new RegExp("&"+"#"+"x27;", "g"), "'")
+  return s
 }

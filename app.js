@@ -32,7 +32,7 @@ app.use(compression());
 app.use(bodyParser.urlencoded({ extended: true }));  
 app.use(bodyParser.json());  
 app.use(cors({
-  origin: 'http://www.eatmindful.org',
+  origin: 'http://localhost:3000',
   credentials: true,
   allowedHeaders: 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Allow-Credentials'
 }));
