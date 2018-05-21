@@ -240,6 +240,7 @@ exports.get_stats = function(req, res, next) {
   var token = req.headers.authorization.substring(4);
   var userInfo = jwt.decode(req.headers.authorization.substring(4));
   const month = (req.params.year === 'all' && req.params.month === 'all') ? null : moment(req.params.year + req.params.month + "01");
+  const today = moment().utcOffset(Math.abs(Number(req.params.offset)))
   query = (month) ? { mealUser: ObjectId(userInfo._id), mealDate: {"$gte": month.toDate(), "$lt": month.endOf('month').toDate() }} : { mealUser: ObjectId(userInfo._id)};
   Meal.find(query).sort({ 'mealDate': -1 }).exec(function (err, meals) {
     if (err) { return next(err); }
@@ -258,9 +259,12 @@ exports.get_stats = function(req, res, next) {
       let streakDay = moment();
       let total = meals.length;
       let mealTotal = 0;
+      let todayTotal = 0;
       let snackTotal = 0;
       let days = []
       for(let meal in meals){
+        mealDateMoment = moment(meals[meal].mealDate);
+        todayTotal += (today.isSame(mealDateMoment, 'day')) ? 1 :0;
         mealTotal += (meals[meal].mealType === 'meal') ? 1 : 0;
         snackTotal += (meals[meal].mealType === 'snack') ? 1 : 0;
         mealHungerBeforeTotal += (meals[meal].mealType === 'meal') ? Number(meals[meal].mealHungerBefore) : 0;
@@ -272,38 +276,41 @@ exports.get_stats = function(req, res, next) {
         let moodLength = meals[meal].mealMood.length;
         if(meals[meal].mealType === 'meal'){
           for (i = 0; i < moodLength; i++) {
-            if(meals[meal].mealMood[i] in mealMoods){
-              mealMoods[meals[meal].mealMood[i]] = mealMoods[meals[meal].mealMood[i]] + 1
+            let thisMood = meals[meal].mealMood[i].toLowerCase()
+            if(thisMood in mealMoods){
+              mealMoods[thisMood] = mealMoods[thisMood] + 1
             }
             else{
-              mealMoods[meals[meal].mealMood[i]] = 1
+              mealMoods[thisMood] = 1
             }
           }
-          if(meals[meal].mealSetting in mealSettings){
-            mealSettings[meals[meal].mealSetting] = mealSettings[meals[meal].mealSetting] + 1
+          let thisSetting = meals[meal].mealSetting.toLowerCase()
+          if(thisSetting in mealSettings){
+            mealSettings[thisSetting] = mealSettings[thisSetting] + 1
           }
           else{
-            mealSettings[meals[meal].mealSetting] = 1
+            mealSettings[thisSetting] = 1
           }
         }
         else{
           for (i = 0; i < moodLength; i++) {
-            if(meals[meal].mealMood[i] in snackMoods){
-              snackMoods[meals[meal].mealMood[i]] = snackMoods[meals[meal].mealMood[i]] + 1
+            let thisMood = meals[meal].mealMood[i].toLowerCase()
+            if(thisMood in snackMoods){
+              snackMoods[thisMood] = snackMoods[thisMood] + 1
             }
             else{
-              snackMoods[meals[meal].mealMood[i]] = 1
+              snackMoods[thisMood] = 1
             }
           }
-          if(meals[meal].mealSetting in snackSettings){
-            snackSettings[meals[meal].mealSetting] = snackSettings[meals[meal].mealSetting] + 1
+          let thisSetting = meals[meal].mealSetting.toLowerCase()
+          if(thisSetting in snackSettings){
+            snackSettings[thisSetting] = snackSettings[thisSetting] + 1
           }
           else{
-            snackSettings[meals[meal].mealSetting] = 1
+            snackSettings[thisSetting] = 1
           }
         }
         if(streakDay){
-          mealDateMoment = moment(meals[meal].mealDate);
           if(mealDateMoment.isSame(streakDay, 'day')){
             streakDay.subtract(1, 'day');
             streak++;
@@ -360,7 +367,7 @@ exports.get_stats = function(req, res, next) {
           streak: streak,
           meal: {
             mealTotal: mealTotal,
-            averageMealsPerDay: Math.round( (mealTotal/days.length) * 10 ) / 10,
+            averageMealsPerDay: Math.round( ((mealTotal-todayTotal)/days.length) * 10 ) / 10,
             averageHungerBefore: Math.round( (mealHungerBeforeTotal/mealTotal) * 10 ) / 10,
             averageHungerAfter: Math.round( (mealHungerAfterTotal/mealTotal) * 10 ) / 10,
             averageMealDuration: Math.round( (mealDurationTotal/mealTotal) * 10 ) / 10,
@@ -369,7 +376,7 @@ exports.get_stats = function(req, res, next) {
           },
           snack: {
             snackTotal: snackTotal,
-            averageSnacksPerDay: Math.round( (snackTotal/days.length) * 10 ) / 10,
+            averageSnacksPerDay: Math.round( ((snackTotal-todayTotal)/days.length) * 10 ) / 10,
             averageHungerBefore: Math.round( (snackHungerBeforeTotal/snackTotal) * 10 ) / 10,
             averageHungerAfter: Math.round( (snackHungerAfterTotal/snackTotal) * 10 ) / 10,
             averageMealDuration: Math.round( (snackDurationTotal/snackTotal) * 10 ) / 10,

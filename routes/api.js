@@ -38,7 +38,7 @@ router.get('/day/:day/:offset', requireAuth, meal_controller.view_meals_by_day);
 
 router.get('/month/:month/:offset', requireAuth, meal_controller.view_meals_by_month);
 
-router.get('/stats/:month/:year', requireAuth, meal_controller.get_stats);
+router.get('/stats/:month/:year/:offset', requireAuth, meal_controller.get_stats);
 
 module.exports = router;
 
